@@ -11,18 +11,19 @@ var usersDocument = "Users"
 var collection *gocb.Collection
 var UsersMap map[ID]User
 
-func AppendUser(newUser User) {
+func AppendUser(newUser User) (User, error) {
 	mops := []gocb.MutateInSpec{
 		gocb.ArrayAppendSpec(usersDocument, newUser, nil),
 	}
 
 	_, err := collection.MutateIn(usersDocument, mops, &gocb.MutateInOptions{})
 	if err != nil {
-		panic(err)
+		return User{}, err
 	}
 
 	UsersMap[newUser.UserId] = newUser
 	log.Printf("New user %+v is added.", newUser)
+	return UsersMap[newUser.UserId], nil
 }
 
 func fetchUsers() {

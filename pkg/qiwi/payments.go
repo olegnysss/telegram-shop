@@ -6,12 +6,21 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 )
 
 //Struct for payment (id, sum)
 //Not more than 100 requests in minute (once in a minute per acc)
 
+var Logger *log.Logger
+
 func CheckPayment(config Config) {
+	file, err := os.OpenFile("qiwi.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Logger = log.New(file, "QIWI: ", log.Ldate|log.Ltime|log.Lshortfile)
+
 	client := &http.Client{}
 	paymentsURL := fmt.Sprintf(config.QiwiPaymentsPath, config.QiwiWallet)
 	req, err := http.NewRequest("GET", paymentsURL, nil)
@@ -20,6 +29,8 @@ func CheckPayment(config Config) {
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer  %s", config.QiwiToken))
 	req.Header.Add("Content-Type", "application/json")
+	//Bearer token here, vulnerable
+	log.Printf("request : %+v", req)
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	var responseData PaymentsResponseStruct
@@ -29,13 +40,13 @@ func CheckPayment(config Config) {
 		return
 	}
 
-	fmt.Printf("%+v\n", responseData)
+	log.Printf("%+v\n", responseData)
 	telegramId := "460158421"
-	sum := 0
+	var sum float64 = 0
 	for _, elem := range responseData.Data {
 		if elem.Comment == telegramId {
 			sum += elem.Sum.Amount
 		}
 	}
-	fmt.Printf("Сумма для аккаунта %s: %d", telegramId, sum)
+	log.Printf("Сумма для аккаунта %s: %f", telegramId, sum)
 }

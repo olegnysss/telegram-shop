@@ -6,6 +6,7 @@ import (
 	"github.com/olegnysss/telebot_qiwi/pkg/qiwi"
 	"github.com/olegnysss/telebot_qiwi/pkg/telegram"
 	"log"
+	"os"
 )
 
 func main() {
@@ -14,7 +15,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	logsInit()
 
 	//ToDo refactor to factory
 	err = couchbase.ConnectToCouch(couchbaseConfig(cfg))
@@ -24,6 +25,16 @@ func main() {
 
 	bot, updates := telegram.InitBot(cfg.TelegramToken)
 	telegram.HandleCommands(updates, bot, qiwiConfig(cfg))
+}
+
+func logsInit() {
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
+	file, err := os.OpenFile("application.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.SetOutput(file)
 }
 
 func couchbaseConfig(config *config.Config) couchbase.Config {

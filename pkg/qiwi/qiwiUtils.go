@@ -18,8 +18,8 @@ type PaymentsResponseStruct struct {
 		TrmTxnID string    `json:"trmTxnId"`
 		Account  string    `json:"account"`
 		Sum      struct {
-			Amount   int `json:"amount"`
-			Currency int `json:"currency"`
+			Amount   float64 `json:"amount"`
+			Currency float64 `json:"currency"`
 		} `json:"sum"`
 		Comment string `json:"comment"`
 	} `json:"data"`

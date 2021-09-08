@@ -6,9 +6,12 @@ import (
 	"github.com/olegnysss/telebot_qiwi/pkg/couchbase"
 	"github.com/olegnysss/telebot_qiwi/pkg/qiwi"
 	"log"
+	"os"
 )
 
 type ID uint32
+
+var Logger *log.Logger
 
 func InitBot(tgToken string) (*tgbotapi.BotAPI, tgbotapi.UpdatesChannel) {
 	bot, err := tgbotapi.NewBotAPI(tgToken)
@@ -16,7 +19,11 @@ func InitBot(tgToken string) (*tgbotapi.BotAPI, tgbotapi.UpdatesChannel) {
 		log.Panic(err)
 	}
 
-	bot.Debug = true
+	file, err := os.OpenFile("telegram.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal(err)
+	}
+	Logger = log.New(file, "TG: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
@@ -40,11 +47,17 @@ func HandleCommands(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, qiwiC
 			continue
 		}
 
-		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+		Logger.Printf("Message: %+v\nFrom Chat %+v", update.Message, update.Message.Chat)
 
 		switch update.Message.Text {
 		case "/start":
-			handleStartCommand(update, bot)
+			_, err := checkUser(update)
+			if err != nil {
+				log.Panic(err)
+			}
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать.")
+			msg.ReplyMarkup = StarterKeyboard
+			sendMessage(bot, msg)
 		case "↪️Вернуться в главное меню ↩️":
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Главное меню")
 			msg.ReplyMarkup = StarterKeyboard
@@ -56,22 +69,28 @@ func HandleCommands(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, qiwiC
 			sendMessage(bot, msg)
 		case "💰 Пополнения":
 			qiwi.CheckPayment(qiwiConfig)
+		case "Баланс 💰":
+			user, err := checkUser(update)
+			if err != nil {
+				log.Panic(err)
+			}
+			message := fmt.Sprintf("Ваш баланс: %f", user.Balance)
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
+			sendMessage(bot, msg)
 		}
 	}
 }
 
-func handleStartCommand(update tgbotapi.Update, bot *tgbotapi.BotAPI) {
-	_, ok := couchbase.UsersMap[couchbase.ID(update.Message.Chat.ID)]
+func checkUser(update tgbotapi.Update) (couchbase.User, error) {
+	user, ok := couchbase.UsersMap[couchbase.ID(update.Message.Chat.ID)]
 	if !ok {
 		newUser := couchbase.User{
 			UserId: couchbase.ID(update.Message.Chat.ID),
 			Name:   update.Message.Chat.UserName,
 		}
-		couchbase.AppendUser(newUser)
+		return couchbase.AppendUser(newUser)
 	} else {
 		log.Printf("Пользователь %d уже зарегистрирован", update.Message.Chat.ID)
+		return user, nil
 	}
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать.")
-	msg.ReplyMarkup = StarterKeyboard
-	sendMessage(bot, msg)
 }
