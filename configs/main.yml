@@ -1,0 +1,13 @@
+#CouchBase
+connString:
+couchUsername:
+couchPassword:
+bucketName:
+
+#Qiwi
+qiwiToken:
+qiwiWallet:
+paymentsPath:
+
+#Telegram
+tgToken:
