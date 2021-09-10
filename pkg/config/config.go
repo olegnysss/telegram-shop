@@ -5,9 +5,10 @@ import "github.com/spf13/viper"
 type Config struct {
 	TelegramToken string `mapstructure:"tgToken"`
 
-	QiwiToken        string  `mapstructure:"qiwiToken"`
+	QiwiToken        string `mapstructure:"qiwiToken"`
 	QiwiWallet       string `mapstructure:"qiwiWallet"`
 	QiwiPaymentsPath string `mapstructure:"paymentsPath"`
+	QiwiCashInPath   string `mapstructure:"cashInPath"`
 
 	CouchConnString string `mapstructure:"connString"`
 	CouchUsername   string `mapstructure:"couchUsername"`

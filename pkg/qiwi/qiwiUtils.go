@@ -6,6 +6,7 @@ type Config struct {
 	QiwiToken        string
 	QiwiWallet       string
 	QiwiPaymentsPath string
+	QiwiCashInPath   string
 }
 
 type PaymentsResponseStruct struct {

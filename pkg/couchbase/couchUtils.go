@@ -23,7 +23,3 @@ type User struct {
 	Balance         Roubles
 	PurchasesAmount Roubles
 }
-
-type Users struct {
-	Users []User
-}

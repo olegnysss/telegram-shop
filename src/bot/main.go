@@ -18,10 +18,11 @@ func main() {
 	logsInit()
 
 	//ToDo refactor to factory
-	err = couchbase.ConnectToCouch(couchbaseConfig(cfg))
+	usersMap, err := couchbase.ConnectToCouch(couchbaseConfig(cfg))
 	if err != nil {
 		log.Panic(err)
 	}
+	log.Printf("%+v", usersMap)
 
 	bot, updates := telegram.InitBot(cfg.TelegramToken)
 	telegram.HandleCommands(updates, bot, qiwiConfig(cfg))
@@ -51,5 +52,6 @@ func qiwiConfig(config *config.Config) qiwi.Config {
 		QiwiToken:        config.QiwiToken,
 		QiwiWallet:       config.QiwiWallet,
 		QiwiPaymentsPath: config.QiwiPaymentsPath,
+		QiwiCashInPath:   config.QiwiCashInPath,
 	}
 }

@@ -40,7 +40,7 @@ func sendMessage(bot *tgbotapi.BotAPI, msg tgbotapi.MessageConfig) {
 	}
 }
 
-//todo refactor input values
+// HandleCommands todo refactor input values
 func HandleCommands(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, qiwiConfig qiwi.Config) {
 	for update := range updates {
 		if update.Message == nil { // ignore any non-Message Updates
@@ -49,48 +49,52 @@ func HandleCommands(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, qiwiC
 
 		Logger.Printf("Message: %+v\nFrom Chat %+v", update.Message, update.Message.Chat)
 
+		chatId := update.Message.Chat.ID
+		userName := update.Message.Chat.UserName
+
 		switch update.Message.Text {
 		case "/start":
-			_, err := checkUser(update)
+			_, err := couchbase.CheckUser(chatId, userName)
 			if err != nil {
 				log.Panic(err)
 			}
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать.")
-			msg.ReplyMarkup = StarterKeyboard
+			msg := tgbotapi.NewMessage(chatId, "Добро пожаловать.")
+			msg.ReplyMarkup = starterKeyboard
 			sendMessage(bot, msg)
 		case "↪️Вернуться в главное меню ↩️":
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Главное меню")
-			msg.ReplyMarkup = StarterKeyboard
+			msg := tgbotapi.NewMessage(chatId, "Главное меню")
+			msg.ReplyMarkup = starterKeyboard
 			sendMessage(bot, msg)
 		case "Личный кабинет 👤":
-			personalData := fmt.Sprintf(PersonalDataFormat, update.Message.From.ID, update.Message.From.UserName)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, personalData)
+			personalData := fmt.Sprintf(personalDataFormat, update.Message.From.ID, update.Message.From.UserName)
+			msg := tgbotapi.NewMessage(chatId, personalData)
 			msg.ReplyMarkup = profileKeyboard
 			sendMessage(bot, msg)
 		case "💰 Пополнения":
 			qiwi.CheckPayment(qiwiConfig)
 		case "Баланс 💰":
-			user, err := checkUser(update)
+			user, err := couchbase.CheckUser(chatId, userName)
 			if err != nil {
 				log.Panic(err)
 			}
 			message := fmt.Sprintf("Ваш баланс: %f", user.Balance)
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, message)
+			msg := tgbotapi.NewMessage(chatId, message)
+			msg.ReplyMarkup = balanceKeyboard
 			sendMessage(bot, msg)
-		}
-	}
-}
+		case "Пополнить баланс 💰":
+			_, err := couchbase.FetchTransactions(chatId)
+			if err != nil {
+				log.Panic(err)
+			}
+			message := fmt.Sprintf(paymentInfo, qiwiConfig.QiwiWallet, chatId)
+			msg := tgbotapi.NewMessage(chatId, message)
+			msg.ReplyMarkup = cashInKeyboard
+			sendMessage(bot, msg)
+			msg1 := tgbotapi.NewMessage(chatId, "Для пополнения баланса нажмите кнопку ниже")
+			msg1.ReplyMarkup = getPaymentKeyboard(chatId, qiwiConfig)
+			sendMessage(bot, msg1)
+		case "Я пополнил баланс":
 
-func checkUser(update tgbotapi.Update) (couchbase.User, error) {
-	user, ok := couchbase.UsersMap[couchbase.ID(update.Message.Chat.ID)]
-	if !ok {
-		newUser := couchbase.User{
-			UserId: couchbase.ID(update.Message.Chat.ID),
-			Name:   update.Message.Chat.UserName,
 		}
-		return couchbase.AppendUser(newUser)
-	} else {
-		log.Printf("Пользователь %d уже зарегистрирован", update.Message.Chat.ID)
-		return user, nil
 	}
 }

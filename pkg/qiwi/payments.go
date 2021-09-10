@@ -25,12 +25,12 @@ func CheckPayment(config Config) {
 	paymentsURL := fmt.Sprintf(config.QiwiPaymentsPath, config.QiwiWallet)
 	req, err := http.NewRequest("GET", paymentsURL, nil)
 	if err != nil {
-		log.Panic(err)
+		Logger.Panic(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer  %s", config.QiwiToken))
 	req.Header.Add("Content-Type", "application/json")
-	//Bearer token here, vulnerable
-	log.Printf("request : %+v", req)
+	//todo Bearer token here, vulnerable
+	Logger.Printf("request : %+v", req)
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	var responseData PaymentsResponseStruct
@@ -40,7 +40,8 @@ func CheckPayment(config Config) {
 		return
 	}
 
-	log.Printf("%+v\n", responseData)
+	Logger.Printf("%+v\n", responseData)
+	//todo should receive user
 	telegramId := "460158421"
 	var sum float64 = 0
 	for _, elem := range responseData.Data {
@@ -48,5 +49,5 @@ func CheckPayment(config Config) {
 			sum += elem.Sum.Amount
 		}
 	}
-	log.Printf("Сумма для аккаунта %s: %f", telegramId, sum)
+	Logger.Printf("Сумма для аккаунта %s: %f", telegramId, sum)
 }
