@@ -40,7 +40,14 @@ func AppendUser(newUser User) (User, error) {
 func fetchUsers() (map[ID]User, error) {
 	usersResult, err := collection.Get(usersDocument, nil)
 	if err != nil {
-		return nil, err
+		if kvErr, ok := err.(*gocb.KeyValueError); ok {
+			_, err := handleKVError(kvErr, usersDocument, User{})
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	var users []User
@@ -54,4 +61,16 @@ func fetchUsers() (map[ID]User, error) {
 	}
 
 	return usersMap, nil
+}
+
+func handleKVError(kvErr *gocb.KeyValueError, document string, types interface{}) (mutOut *gocb.MutationResult, errOut error) {
+	if kvErr.ErrorDescription == "Not Found" {
+		Logger.Printf("%s is not existed. Creating new document.", document)
+		result, err := collection.Insert(document, types, nil)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+	return nil, kvErr
 }

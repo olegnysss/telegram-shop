@@ -19,11 +19,10 @@ func InitBot(tgToken string) (*tgbotapi.BotAPI, tgbotapi.UpdatesChannel) {
 		log.Panic(err)
 	}
 
-	file, err := os.OpenFile("telegram.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	err = initLogs()
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
-	Logger = log.New(file, "TG: ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
@@ -97,4 +96,13 @@ func HandleCommands(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, qiwiC
 
 		}
 	}
+}
+
+func initLogs() error {
+	file, err := os.OpenFile("telegram.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+	Logger = log.New(file, "TG: ", log.Ldate|log.Ltime|log.Lshortfile)
+	return err
 }
