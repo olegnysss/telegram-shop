@@ -1,14 +1,14 @@
-#CouchBase
-connString:
-couchUsername:
-couchPassword:
-bucketName:
+Telegram:
+  tgToken:
 
-#Qiwi
-qiwiToken:
-qiwiWallet:
-paymentsPath:
-cashInPath:
+Couch:
+  connString:
+  couchUsername:
+  couchPassword:
+  bucketName:
 
-#Telegram
-tgToken:
+Qiwi:
+  qiwiToken:
+  qiwiWallet:
+  paymentsPath:
+  cashInPath:

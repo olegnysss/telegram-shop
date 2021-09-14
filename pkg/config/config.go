@@ -2,18 +2,28 @@ package config
 
 import "github.com/spf13/viper"
 
-type Config struct {
+type Telegram struct {
 	TelegramToken string `mapstructure:"tgToken"`
+}
 
+type Qiwi struct {
 	QiwiToken        string `mapstructure:"qiwiToken"`
 	QiwiWallet       string `mapstructure:"qiwiWallet"`
 	QiwiPaymentsPath string `mapstructure:"paymentsPath"`
 	QiwiCashInPath   string `mapstructure:"cashInPath"`
+}
 
+type Couch struct {
 	CouchConnString string `mapstructure:"connString"`
 	CouchUsername   string `mapstructure:"couchUsername"`
 	CouchPassword   string `mapstructure:"couchPassword"`
 	CouchBucketName string `mapstructure:"bucketName"`
+}
+
+type Config struct {
+	Telegram Telegram
+	Qiwi     Qiwi
+	Couch    Couch
 }
 
 func Init() (*Config, error) {

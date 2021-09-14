@@ -53,8 +53,8 @@ var cashInKeyboard = tgbotapi.NewReplyKeyboard(
 	),
 )
 
-func getPaymentKeyboard(id int64, qiwiConfig qiwi.Config) tgbotapi.InlineKeyboardMarkup {
-	cashInPath := fmt.Sprintf(qiwiConfig.QiwiCashInPath, qiwiConfig.QiwiWallet, id)
+func getPaymentKeyboard(id int64, qiwi *qiwi.QiwiClient) tgbotapi.InlineKeyboardMarkup {
+	cashInPath := fmt.Sprintf(qiwi.CashInPath, qiwi.Wallet, id)
 	return tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonURL("Перейти к оплате", cashInPath),

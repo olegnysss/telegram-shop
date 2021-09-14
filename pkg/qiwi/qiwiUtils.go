@@ -2,14 +2,7 @@ package qiwi
 
 import "time"
 
-type Config struct {
-	QiwiToken        string
-	QiwiWallet       string
-	QiwiPaymentsPath string
-	QiwiCashInPath   string
-}
-
-type PaymentsResponseStruct struct {
+type PaymentsResponse struct {
 	Data []struct {
 		TxnID    int64     `json:"txnId"`
 		PersonID int64     `json:"personId"`
