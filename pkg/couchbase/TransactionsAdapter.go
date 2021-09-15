@@ -1,8 +1,10 @@
 package couchbase
 
 import (
+	"github.com/couchbase/gocb/v2"
 	"github.com/olegnysss/telebot_qiwi/pkg/qiwi"
 	"log"
+	"reflect"
 )
 
 type TransactionsAdapter struct {
@@ -25,14 +27,14 @@ func (t *TransactionsAdapter) FetchTransactions(chatId int64) (map[ID]map[ID]Tra
 	if transactionsResult == nil {
 		return t.UserTransactionsMap, nil
 	}
-	var transactions []Transaction
-	err = transactionsResult.Content(&transactions)
+	var userTransactions map[ID]map[ID]Transaction
+	err = transactionsResult.Content(&userTransactions)
 	if err != nil {
 		return nil, err
 	}
 
 	transactionsMap := make(map[ID]Transaction)
-	for _, transaction := range transactions {
+	for _, transaction := range userTransactions[ID(chatId)] {
 		transactionsMap[transaction.TxnId] = transaction
 	}
 
@@ -57,6 +59,27 @@ func (t *TransactionsAdapter) ParseTransactions(telegramId string, responseData 
 		}
 	}
 	return transactionMap, nil
+}
+
+func (t *TransactionsAdapter) PutTransactions(id int64, tnxMap map[ID]Transaction) (bool, error) {
+	if reflect.DeepEqual(t.UserTransactionsMap[ID(id)], tnxMap) {
+		return false, nil
+	} else {
+		t.UserTransactionsMap[ID(id)] = tnxMap
+		_, err := t.storeTransactions()
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+}
+
+func (t *TransactionsAdapter) storeTransactions() (*gocb.MutationResult, error) {
+	result, err := collection.Replace(t.TransactionsDocument, &t.UserTransactionsMap, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 type Transaction struct {

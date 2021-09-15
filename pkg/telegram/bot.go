@@ -53,6 +53,7 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 
 		chatId := update.Message.Chat.ID
 		userName := update.Message.Chat.UserName
+		couchChatId := couchbase.ID(chatId)
 
 		switch update.Message.Text {
 		case "/start":
@@ -73,7 +74,18 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 			msg.ReplyMarkup = profileKeyboard
 			b.sendMessage(msg)
 		case "💰 Пополнения":
-
+			txn, err := b.couch.TransactionsAdapter.FetchTransactions(chatId)
+			if err != nil {
+				log.Panic(err)
+			}
+			msgText := fmt.Sprintf("Список ваших пополнений:\n")
+			i := 1
+			for _, transaction := range txn[couchChatId] {
+				msgText += fmt.Sprintf("%d. Пополнение баланса через киви на сумму: %.0f \n", i, transaction.Sum)
+				i++
+			}
+			msg := tgbotapi.NewMessage(chatId, msgText)
+			b.sendMessage(msg)
 		case "Баланс 💰":
 			user, err := b.couch.UsersAdapter.CheckUser(chatId, userName)
 			if err != nil {
@@ -101,7 +113,18 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 				log.Panic(err)
 			}
 			transactions, err := b.couch.TransactionsAdapter.ParseTransactions(strconv.FormatInt(chatId, 10), payResp)
-			log.Println(transactions)
+			isNew, err := b.couch.TransactionsAdapter.PutTransactions(chatId, transactions)
+			msg := tgbotapi.NewMessage(chatId, "")
+			if err != nil {
+				couchbase.Logger.Panic(err)
+			}
+			if isNew {
+				couchbase.Logger.Printf("Transactions stored in database. %+v", transactions)
+				msg.Text = "Пополнено!"
+			} else {
+				msg.Text = "Новых платежей не обнаружено"
+			}
+			b.sendMessage(msg)
 		}
 	}
 }
