@@ -2,68 +2,68 @@ package couchbase
 
 import (
 	"github.com/couchbase/gocb/v2"
-	"log"
+	"strconv"
 )
 
+var usersCollection *gocb.Collection
+
 type UsersAdapter struct {
-	UsersMap      map[ID]User
-	entityAdapter *EntityAdapter
-	UserDocument  string
+	entityAdapter  *EntityAdapter
+	UserCollection string
 }
 
 func InitUsersAdapter() *UsersAdapter {
 	return &UsersAdapter{
-		map[ID]User{},
 		&EntityAdapter{},
-		"Users",
+		"users",
 	}
+}
+
+func InitUsersCollection(scope *gocb.Scope) *gocb.Collection {
+	usersCollection = scope.Collection("users")
+	return usersCollection
 }
 
 func (u *UsersAdapter) CheckUser(chatId int64, username string) (User, error) {
-	user, ok := u.UsersMap[ID(chatId)]
-	if !ok {
-		newUser := User{
-			UserId: ID(chatId),
-			Name:   username,
-		}
-		return u.AppendUser(newUser)
-	} else {
-		log.Printf("Пользователь %d уже зарегистрирован", chatId)
-		return user, nil
-	}
-}
-
-func (u *UsersAdapter) AppendUser(newUser User) (User, error) {
-	mops := []gocb.MutateInSpec{
-		gocb.ArrayAppendSpec("", newUser, nil),
-	}
-
-	_, err := collection.MutateIn(u.UserDocument, mops, &gocb.MutateInOptions{})
+	userResult, err := u.retrieve(chatId)
 	if err != nil {
-		return User{}, err
+		if kvErr, ok := err.(*gocb.KeyValueError); ok && kvErr.ErrorDescription == "Not Found" {
+			_, err := u.registerUser(chatId, username)
+			if err != nil {
+				return User{}, err
+			}
+			newUserResult, err := u.entityAdapter.retrieve(usersCollection, int(chatId))
+			return ContentUser(newUserResult)
+		} else {
+			return User{}, err
+		}
 	}
-
-	u.UsersMap[newUser.UserId] = newUser
-	log.Printf("New user %+v is added.", newUser)
-	return u.UsersMap[newUser.UserId], nil
+	return ContentUser(userResult)
 }
 
-func (u *UsersAdapter) fetchUsers() (map[ID]User, error) {
-	usersResult, err := u.entityAdapter.fetch(u.UserDocument)
-	var users []User
-	if usersResult == nil {
-		return u.UsersMap, nil
-	}
+func (u *UsersAdapter) retrieve(chatId int64) (*gocb.GetResult, error) {
+	return u.entityAdapter.retrieve(usersCollection, int(chatId))
+}
 
-	err = usersResult.Content(&users)
+func ContentUser(userResult *gocb.GetResult) (User, error) {
+	var user User
+	err := userResult.Content(&user)
+	if err != nil {
+		panic(err)
+	}
+	return user, nil
+}
+
+func (u *UsersAdapter) registerUser(chatId int64, username string) (*gocb.MutationResult, error) {
+	newUser := User{
+		UserId: ID(chatId),
+		Name:   username,
+	}
+	result, err := u.entityAdapter.insert(usersCollection, newUser)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, elem := range users {
-		u.UsersMap[elem.UserId] = elem
-	}
-	return u.UsersMap, nil
+	return result, nil
 }
 
 type User struct {
@@ -71,4 +71,12 @@ type User struct {
 	Name            string
 	Balance         float64
 	PurchasesAmount float64
+}
+
+func (u User) GetId() ID {
+	return u.UserId
+}
+
+func (u User) GetStringId() string {
+	return strconv.Itoa(int(u.UserId))
 }

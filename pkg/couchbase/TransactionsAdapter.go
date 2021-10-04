@@ -1,90 +1,140 @@
 package couchbase
 
 import (
+	"fmt"
 	"github.com/couchbase/gocb/v2"
 	"github.com/olegnysss/telebot_qiwi/pkg/qiwi"
-	"log"
-	"reflect"
+	"strconv"
 )
 
+var tnxCollection *gocb.Collection
+
 type TransactionsAdapter struct {
-	UserTransactionsMap  map[ID]map[ID]Transaction
-	entityAdapter        *EntityAdapter
-	TransactionsDocument string
+	entityAdapter          *EntityAdapter
+	TransactionsCollection string
 }
 
 func InitTransactionsAdapter() *TransactionsAdapter {
 	return &TransactionsAdapter{
-		map[ID]map[ID]Transaction{},
 		&EntityAdapter{},
-		"Transactions",
+		"transactions",
 	}
 }
 
-func (t *TransactionsAdapter) FetchTransactions(chatId int64) (map[ID]map[ID]Transaction, error) {
-	transactionsResult, err := t.entityAdapter.fetch(t.TransactionsDocument)
+func InitTnxCollection(scope *gocb.Scope) *gocb.Collection {
+	tnxCollection = scope.Collection("transactions")
+	return tnxCollection
+}
 
-	if transactionsResult == nil {
-		return t.UserTransactionsMap, nil
+func (t *TransactionsAdapter) tnxFlow(tnx Transaction, couch *CouchClient) (bool, error) {
+	_, isNew, err := t.CheckTnx(int64(tnx.TxnId))
+	if err != nil {
+		return false, err
 	}
-	var userTransactions map[ID]map[ID]Transaction
-	err = transactionsResult.Content(&userTransactions)
+	if isNew {
+		userResult, err := couch.UsersAdapter.retrieve(int64(tnx.UserId))
+		if err != nil {
+			return false, err
+		}
+		user, err := ContentUser(userResult)
+		user.Balance += tnx.Sum
+		couch.UsersAdapter.entityAdapter.replace(usersCollection, user)
+		t.entityAdapter.insert(tnxCollection, tnx)
+		return true, nil
+	}
+	return false, nil
+}
+
+func (t *TransactionsAdapter) CheckTnx(tnxId int64) (Transaction, bool, error) {
+	tnxResult, err := t.entityAdapter.retrieve(tnxCollection, int(tnxId))
+	if err != nil {
+		if kvErr, ok := err.(*gocb.KeyValueError); ok && kvErr.ErrorDescription == "Not Found" {
+			return Transaction{}, true, nil
+		} else {
+			return Transaction{}, false, err
+		}
+	}
+	return contentTnx(tnxResult)
+}
+
+func contentTnx(tnxResult *gocb.GetResult) (Transaction, bool, error) {
+	var tnx Transaction
+	err := tnxResult.Content(&tnx)
+	if err != nil {
+		panic(err)
+	}
+	return tnx, false, nil
+}
+
+func contentTnxQuery(tnxResults *gocb.QueryResult) ([]Transaction, error) {
+	var tnxSlice []Transaction
+
+	for tnxResults.Next() {
+		var tnx Transaction
+		err := tnxResults.Row(&tnx)
+		if err != nil {
+			panic(err)
+		}
+		tnxSlice = append(tnxSlice, tnx)
+		//return tnxSlice, nil
+	}
+	err := tnxResults.Err()
 	if err != nil {
 		return nil, err
 	}
-
-	transactionsMap := make(map[ID]Transaction)
-	for _, transaction := range userTransactions[ID(chatId)] {
-		transactionsMap[transaction.TxnId] = transaction
-	}
-
-	t.UserTransactionsMap[ID(chatId)] = transactionsMap
-
-	log.Printf("%+v", t.UserTransactionsMap)
-	return t.UserTransactionsMap, nil
+	return tnxSlice, err
 }
 
 func (t *TransactionsAdapter) ParseTransactions(telegramId string, responseData qiwi.PaymentsResponse) (map[ID]Transaction, error) {
 	transactionMap := make(map[ID]Transaction)
-	var sum float64 = 0
+	userId, err := strconv.Atoi(telegramId)
+	if err != nil {
+		return nil, err
+	}
 	for _, elem := range responseData.Data {
 		if elem.Comment == telegramId {
-			sum += elem.Sum.Amount
 			transactionMap[ID(elem.TxnID)] = Transaction{
-				TxnId:    ID(elem.TxnID),
-				PersonId: elem.PersonID,
-				Sum:      elem.Sum.Amount,
-				Comment:  elem.Comment,
+				TxnId:  ID(elem.TxnID),
+				Msisdn: elem.PersonID,
+				Sum:    elem.Sum.Amount,
+				UserId: ID(userId),
 			}
 		}
 	}
 	return transactionMap, nil
 }
 
-func (t *TransactionsAdapter) PutTransactions(id int64, tnxMap map[ID]Transaction) (bool, error) {
-	if reflect.DeepEqual(t.UserTransactionsMap[ID(id)], tnxMap) {
-		return false, nil
-	} else {
-		t.UserTransactionsMap[ID(id)] = tnxMap
-		_, err := t.storeTransactions()
-		if err != nil {
-			return false, err
+func (t *TransactionsAdapter) ProcessTnx(transactions map[ID]Transaction, couch *CouchClient) (bool, error) {
+	var max ID = 0
+	for _, transaction := range transactions {
+		if transaction.TxnId > max {
+			max = transaction.TxnId
 		}
-		return true, nil
 	}
+	isNew, err := t.tnxFlow(transactions[max], couch)
+	return isNew, err
 }
 
-func (t *TransactionsAdapter) storeTransactions() (*gocb.MutationResult, error) {
-	result, err := collection.Replace(t.TransactionsDocument, &t.UserTransactionsMap, nil)
+func (t *TransactionsAdapter) FetchTransactions(id int64) ([]Transaction, error) {
+	query := fmt.Sprintf("SELECT transactions.* from `teleshopBucket`._default.transactions WHERE UserId = %d", id)
+	results, err := cluster.Query(query, nil)
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return contentTnxQuery(results)
 }
 
 type Transaction struct {
-	TxnId    ID
-	PersonId int64
-	Sum      float64
-	Comment  string
+	TxnId  ID
+	Msisdn int64
+	Sum    float64
+	UserId ID
+}
+
+func (t Transaction) GetId() ID {
+	return t.TxnId
+}
+
+func (t Transaction) GetStringId() string {
+	return strconv.Itoa(int(t.TxnId))
 }

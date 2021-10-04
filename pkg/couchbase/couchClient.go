@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-var collection *gocb.Collection
 var Logger *log.Logger
+var cluster *gocb.Cluster
 
 type ID int64
 
@@ -34,13 +34,13 @@ func InitCouchClient(config config.Couch) *CouchClient {
 	}
 }
 
-func (c *CouchClient) ConnectToCouch() (map[ID]User, error) {
+func (c *CouchClient) ConnectToCouch() (*gocb.Scope, error) {
 	err := initLogs()
 	if err != nil {
 		log.Panic(err)
 	}
 
-	cluster, err := gocb.Connect(
+	cluster, err = gocb.Connect(
 		c.connString,
 		gocb.ClusterOptions{
 			Username: c.couchUsername,
@@ -58,10 +58,10 @@ func (c *CouchClient) ConnectToCouch() (map[ID]User, error) {
 		log.Panic(err)
 	}
 
-	collection = bucket.DefaultCollection()
-	c.UsersAdapter.UsersMap = make(map[ID]User)
-	c.TransactionsAdapter.UserTransactionsMap = make(map[ID]map[ID]Transaction)
-	return c.UsersAdapter.fetchUsers()
+	scope := bucket.DefaultScope()
+	InitUsersCollection(scope)
+	InitTnxCollection(scope)
+	return scope, nil
 }
 
 func initLogs() error {

@@ -1,0 +1,5 @@
+CREATE INDEX idx_tnx_userid ON `default`:`teleshopBucket`.`_default`.`transactions`(UserId) USING GSI
+CREATE PRIMARY INDEX idx_tnx ON `default`:`teleshopBucket`.`_default`.`transactions` USING GSI
+CREATE PRIMARY INDEX idx_users ON `default`:`teleshopBucket`.`_default`.`users` USING GSI
+
+SELECT transactions.* from `teleshopBucket`._default.transactions WHERE UserId = 460158421
