@@ -26,6 +26,17 @@ func InitTnxCollection(scope *gocb.Scope) *gocb.Collection {
 	return tnxCollection
 }
 
+func (t *TransactionsAdapter) ProcessTnx(transactions map[ID]Transaction, couch *CouchClient) (bool, error) {
+	var max ID = 0
+	for _, transaction := range transactions {
+		if transaction.TxnId > max {
+			max = transaction.TxnId
+		}
+	}
+	isNew, err := t.tnxFlow(transactions[max], couch)
+	return isNew, err
+}
+
 func (t *TransactionsAdapter) tnxFlow(tnx Transaction, couch *CouchClient) (bool, error) {
 	_, isNew, err := t.CheckTnx(int64(tnx.TxnId))
 	if err != nil {
@@ -38,8 +49,14 @@ func (t *TransactionsAdapter) tnxFlow(tnx Transaction, couch *CouchClient) (bool
 		}
 		user, err := ContentUser(userResult)
 		user.Balance += tnx.Sum
-		couch.UsersAdapter.entityAdapter.replace(usersCollection, user)
-		t.entityAdapter.insert(tnxCollection, tnx)
+		_, err = couch.UsersAdapter.entityAdapter.replace(usersCollection, user)
+		if err != nil {
+			return false, err
+		}
+		_, err = t.entityAdapter.insert(tnxCollection, tnx)
+		if err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 	return false, nil
@@ -66,9 +83,17 @@ func contentTnx(tnxResult *gocb.GetResult) (Transaction, bool, error) {
 	return tnx, false, nil
 }
 
+func (t *TransactionsAdapter) FetchTransactions(id int64) ([]Transaction, error) {
+	query := fmt.Sprintf("SELECT transactions.* from `teleshopBucket`._default.transactions WHERE UserId = %d", id)
+	results, err := cluster.Query(query, nil)
+	if err != nil {
+		return nil, err
+	}
+	return contentTnxQuery(results)
+}
+
 func contentTnxQuery(tnxResults *gocb.QueryResult) ([]Transaction, error) {
 	var tnxSlice []Transaction
-
 	for tnxResults.Next() {
 		var tnx Transaction
 		err := tnxResults.Row(&tnx)
@@ -76,7 +101,6 @@ func contentTnxQuery(tnxResults *gocb.QueryResult) ([]Transaction, error) {
 			panic(err)
 		}
 		tnxSlice = append(tnxSlice, tnx)
-		//return tnxSlice, nil
 	}
 	err := tnxResults.Err()
 	if err != nil {
@@ -102,26 +126,6 @@ func (t *TransactionsAdapter) ParseTransactions(telegramId string, responseData 
 		}
 	}
 	return transactionMap, nil
-}
-
-func (t *TransactionsAdapter) ProcessTnx(transactions map[ID]Transaction, couch *CouchClient) (bool, error) {
-	var max ID = 0
-	for _, transaction := range transactions {
-		if transaction.TxnId > max {
-			max = transaction.TxnId
-		}
-	}
-	isNew, err := t.tnxFlow(transactions[max], couch)
-	return isNew, err
-}
-
-func (t *TransactionsAdapter) FetchTransactions(id int64) ([]Transaction, error) {
-	query := fmt.Sprintf("SELECT transactions.* from `teleshopBucket`._default.transactions WHERE UserId = %d", id)
-	results, err := cluster.Query(query, nil)
-	if err != nil {
-		return nil, err
-	}
-	return contentTnxQuery(results)
 }
 
 type Transaction struct {
