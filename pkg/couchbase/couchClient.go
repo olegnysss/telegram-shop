@@ -37,7 +37,7 @@ func InitCouchClient(config config.Couch) *CouchClient {
 func (c *CouchClient) ConnectToCouch() (*gocb.Scope, error) {
 	err := initLogs()
 	if err != nil {
-		log.Panic(err)
+		return nil, err
 	}
 
 	cluster, err = gocb.Connect(
@@ -47,7 +47,7 @@ func (c *CouchClient) ConnectToCouch() (*gocb.Scope, error) {
 			Password: c.couchPassword,
 		})
 	if err != nil {
-		log.Panic(err)
+		return nil, err
 	}
 	// get a bucket reference
 	bucket := cluster.Bucket(c.bucketName)
@@ -55,7 +55,7 @@ func (c *CouchClient) ConnectToCouch() (*gocb.Scope, error) {
 	// We wait until the bucket is definitely connected and setup.
 	err = bucket.WaitUntilReady(5*time.Second, nil)
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 
 	scope := bucket.DefaultScope()

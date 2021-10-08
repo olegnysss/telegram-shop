@@ -78,7 +78,7 @@ func contentTnx(tnxResult *gocb.GetResult) (Transaction, bool, error) {
 	var tnx Transaction
 	err := tnxResult.Content(&tnx)
 	if err != nil {
-		panic(err)
+		return Transaction{}, false, err
 	}
 	return tnx, false, nil
 }
@@ -98,7 +98,7 @@ func contentTnxQuery(tnxResults *gocb.QueryResult) ([]Transaction, error) {
 		var tnx Transaction
 		err := tnxResults.Row(&tnx)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		tnxSlice = append(tnxSlice, tnx)
 	}

@@ -13,19 +13,19 @@ import (
 func main() {
 	cfg, err := config.Init()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	logsInit()
 
 	botApi, err := tgbotapi.NewBotAPI(cfg.Telegram.TelegramToken)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	couch := couchbase.InitCouchClient(cfg.Couch)
 	_, err = couch.ConnectToCouch()
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 
 	qiwiClient := qiwi.InitQiwiClient(cfg.Qiwi)

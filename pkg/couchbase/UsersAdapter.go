@@ -49,7 +49,7 @@ func ContentUser(userResult *gocb.GetResult) (User, error) {
 	var user User
 	err := userResult.Content(&user)
 	if err != nil {
-		panic(err)
+		return User{}, err
 	}
 	return user, nil
 }
