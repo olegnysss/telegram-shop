@@ -31,7 +31,7 @@ func NewBot(bot *tgbotapi.BotAPI, couch *couchbase.CouchClient, qiwi *qiwi.QiwiC
 func (b *Bot) Start() {
 	err := initLogs()
 	if err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 
 	log.Printf("Authorized on account %s", b.bot.Self.UserName)
@@ -58,7 +58,7 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 		case "/start":
 			_, err := b.couch.UsersAdapter.CheckUser(chatId, userName)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 			msg := tgbotapi.NewMessage(chatId, "Добро пожаловать.")
 			msg.ReplyMarkup = starterKeyboard
@@ -75,7 +75,7 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 		case "💰 Пополнения":
 			transactions, err := b.couch.TransactionsAdapter.FetchTransactions(chatId)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 			msgText := fmt.Sprintf("Список ваших пополнений:\n")
 			i := 1
@@ -88,7 +88,7 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 		case "Баланс 💰":
 			user, err := b.couch.UsersAdapter.CheckUser(chatId, userName)
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 			message := fmt.Sprintf("Ваш баланс: %.0f", user.Balance)
 			msg := tgbotapi.NewMessage(chatId, message)
@@ -127,7 +127,7 @@ func (b *Bot) HandleCommands(updates tgbotapi.UpdatesChannel) {
 
 func (b *Bot) sendMessage(msg tgbotapi.MessageConfig) {
 	if _, err := b.bot.Send(msg); err != nil {
-		log.Panic(err)
+		log.Println(err)
 	}
 }
 
